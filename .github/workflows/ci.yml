@@ -54,10 +54,10 @@ jobs:
       - name: Restore vulnerability database cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/work1-dependency-check
-          key: nvd-v13-${{ runner.os }}-${{ github.run_id }}
+          path: ~/.cache/work1-dependency-check-12.2.2
+          key: nvd-v12.2.2-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
-            nvd-v13-${{ runner.os }}-
+            nvd-v12.2.2-${{ runner.os }}-
       - name: Check dependencies using NVD vulnerability data
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}

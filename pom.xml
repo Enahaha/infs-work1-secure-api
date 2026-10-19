@@ -123,7 +123,7 @@
                     <plugin>
                         <groupId>org.owasp</groupId>
                         <artifactId>dependency-check-maven</artifactId>
-                        <version>13.0.0</version>
+                        <version>12.2.2</version>
                         <configuration>
                             <formats>
                                 <format>HTML</format>
@@ -132,7 +132,7 @@
                             <failBuildOnCVSS>7</failBuildOnCVSS>
                             <failOnError>true</failOnError>
                             <skipTestScope>false</skipTestScope>
-                            <dataDirectory>${user.home}/.cache/work1-dependency-check</dataDirectory>
+                            <dataDirectory>${user.home}/.cache/work1-dependency-check-12.2.2</dataDirectory>
                             <!-- NVD remains enabled; OSS Index requires separate credentials. -->
                             <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
                         </configuration>
@@ -148,7 +148,7 @@
                     <plugin>
                         <groupId>org.owasp</groupId>
                         <artifactId>dependency-check-maven</artifactId>
-                        <version>13.0.0</version>
+                        <version>12.2.2</version>
                         <configuration>
                             <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
                         </configuration>

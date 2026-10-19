@@ -122,7 +122,7 @@ mvn test
 |---|---|---|
 | 功能测试 | JUnit + Spring Boot / MockMvc | 测试失败或运行错误 |
 | SAST | SpotBugs 4.10.5.0 + FindSecBugs 1.14.0 | SECURITY 类别的任意置信级别未排除发现项，或扫描运行错误 |
-| SCA | OWASP Dependency-Check 13.0.0 | CVSS 大于等于 7 的发现项，或扫描运行错误 |
+| SCA | OWASP Dependency-Check 12.2.2 | CVSS 大于等于 7 的发现项，或扫描运行错误 |
 
 本地命令（使用 JDK 17）：
 
@@ -135,3 +135,5 @@ bash scripts/run-sca.sh
 SCA 包括测试依赖。NVD 漏洞源启用；OSS Index 分析器因未配置独立账号而关闭。NVD API Key 是可选项，不是作业要求：未配置或为空时匿名下载 NVD 数据；非空时由脚本启用 nvd-key 配置，通过环境变量读取，不将密钥写入命令行。匿名首次更新可能较慢或受限流影响；数据更新或分析失败仍会使任务失败，不能当作扫描通过。
 
 SAST 配置只聚焦 SECURITY 类别，具体审核例外及理由见 [审核记录](docs/SECURITY_REVIEW.md)，不等于完整的代码质量审计。扫描通过也不能证明不存在漏洞。GitHub 上的检查状态及附件应以实际运行结果为准。
+
+Dependency-Check 暂固定为 12.2.2，避免 13.0.0 在无 API Key 时的已知回归（[官方问题 #8715](https://github.com/dependency-check/DependencyCheck/issues/8715)）。漏洞库缓存也按版本隔离。扫描数据仍从 NVD 更新，未关闭漏洞检查或错误检查。

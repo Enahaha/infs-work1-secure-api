@@ -83,3 +83,9 @@ HTTPS 推送可使用 IDEA 的 GitHub 登录流程或 GitHub CLI 登录，GitHub
 2026-10-19：7 项功能测试通过；SAST 在应用逐项审核例外后通过，报告保存在 security-reports/local/。旧配置曾因缺少 NVD_API_KEY 而失败，不能视为依赖无漏洞。现已取消强制 Key 条件；新的匿名扫描结果应以实际运行记录为准。
 
 本地扫描如需使用密钥，请通过本机环境变量 NVD_API_KEY 提供，不将真实值写进仓库。然后执行 `bash scripts/run-sca.sh`。
+
+## 匿名更新兼容性修复
+
+2026-10-19，运行 f46d745 时，13.0.0 即使未设置 Key 仍报 `Invalid API Key, length of 0`。官方 issue #8715 记录了该版本内部默认空 Key 的缺陷；仅取消外部必填检查不能解决。因此插件固定为 12.2.2（两个 profile 同步），并使用独立的 12.2.2 缓存目录。阈值仍为 CVSS >= 7，failOnError 仍启用，NVD 分析保留。
+
+官方记录：https://github.com/dependency-check/DependencyCheck/issues/8715
