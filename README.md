@@ -139,3 +139,5 @@ SAST 配置只聚焦 SECURITY 类别，具体审核例外及理由见 [审核记
 Dependency-Check 暂固定为 12.2.2，避免 13.0.0 在无 API Key 时的已知回归（[官方问题 #8715](https://github.com/dependency-check/DependencyCheck/issues/8715)）。漏洞库缓存也按版本隔离。扫描数据仍从 NVD 更新，未关闭漏洞检查或错误检查。
 
 无 Key 时使用 nvd-feed profile，避免逐页调用匿名 API。镜像由 Dependency-Check 项目维护，通常每天尽力更新一次，可能滞后；扫描结果必须结合数据时间解释。参见 [官方镜像文档](https://dependency-check.github.io/DependencyCheck/data/mirrornvd.html)。扫描日志会随报告附件保存，便于诊断下载错误。
+
+依赖扫描已实际发现 Tomcat 11.0.24 的漏洞报告，现已统一升级至 11.0.27。本地 7 项测试、SAST 和 SCA 复测通过。修复前后证据及影响解释见 [依赖修复记录](docs/DEPENDENCY_REMEDIATION.md)。云端成功运行链接以 Actions 的最终结果为准。

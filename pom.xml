@@ -28,6 +28,8 @@
     </scm>
     <properties>
         <java.version>17</java.version>
+        <!-- Override Boot 4.1.1's Tomcat 11.0.24 to include security fixes. -->
+        <tomcat.version>11.0.27</tomcat.version>
     </properties>
     <dependencies>
         <dependency>
@@ -135,6 +137,8 @@
                             <dataDirectory>${user.home}/.cache/work1-dependency-check-feed-12.2.2</dataDirectory>
                             <!-- NVD remains enabled; OSS Index requires separate credentials. -->
                             <ossIndexAnalyzerEnabled>false</ossIndexAnalyzerEnabled>
+                            <!-- Java app: transitive native DLLs are not .NET assemblies. -->
+                            <assemblyAnalyzerEnabled>false</assemblyAnalyzerEnabled>
                         </configuration>
                     </plugin>
                 </plugins>

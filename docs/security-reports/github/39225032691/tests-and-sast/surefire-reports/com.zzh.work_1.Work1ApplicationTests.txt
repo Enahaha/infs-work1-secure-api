@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.zzh.work_1.Work1ApplicationTests
+-------------------------------------------------------------------------------
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 10.07 s -- in com.zzh.work_1.Work1ApplicationTests
