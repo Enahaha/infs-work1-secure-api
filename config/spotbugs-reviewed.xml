@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- Endpoint inventory, not a reported exploit. Only these two known API controllers. -->
+    <Match>
+        <Bug pattern="SPRING_ENDPOINT"/>
+        <Or>
+            <Class name="com.zzh.work_1.AuthController"/>
+            <Class name="com.zzh.work_1.NoteController"/>
+        </Or>
+    </Match>
+    <!-- Reviewed: stateless API accepts explicit Authorization Bearer tokens only.
+         No session, cookie authentication, HTTP Basic or form login is configured.
+         Revisit this exception if browser-automatic authentication is introduced.
+         See docs/SECURITY_REVIEW.md and cookie/basic authentication regression tests. -->
+    <Match>
+        <Bug pattern="SPRING_CSRF_PROTECTION_DISABLED"/>
+        <Class name="com.zzh.work_1.SecurityConfig"/>
+        <Method name="~lambda\$securityFilterChain\$.*"/>
+    </Match>
+</FindBugsFilter>
