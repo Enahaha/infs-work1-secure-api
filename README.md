@@ -132,8 +132,10 @@ mvn -B -ntp -Psast -DskipTests compile spotbugs:check
 bash scripts/run-sca.sh
 ```
 
-SCA 包括测试依赖。NVD 漏洞源启用；OSS Index 分析器因未配置独立账号而关闭。NVD API Key 是可选项，不是作业要求：未配置或为空时匿名下载 NVD 数据；非空时由脚本启用 nvd-key 配置，通过环境变量读取，不将密钥写入命令行。匿名首次更新可能较慢或受限流影响；数据更新或分析失败仍会使任务失败，不能当作扫描通过。
+SCA 包括测试依赖。NVD 漏洞源启用；OSS Index 分析器因未配置独立账号而关闭。NVD API Key 是可选项，不是作业要求：未配置或为空时从 Dependency-Check 官方镜像下载 NVD JSON 数据文件；非空时由脚本启用 nvd-key 配置，通过环境变量读取，不将密钥写入命令行。首次镜像下载和导入仍需时间，数据新鲜度受镜像更新时间影响；数据更新或分析失败仍会使任务失败，不能当作扫描通过。
 
 SAST 配置只聚焦 SECURITY 类别，具体审核例外及理由见 [审核记录](docs/SECURITY_REVIEW.md)，不等于完整的代码质量审计。扫描通过也不能证明不存在漏洞。GitHub 上的检查状态及附件应以实际运行结果为准。
 
 Dependency-Check 暂固定为 12.2.2，避免 13.0.0 在无 API Key 时的已知回归（[官方问题 #8715](https://github.com/dependency-check/DependencyCheck/issues/8715)）。漏洞库缓存也按版本隔离。扫描数据仍从 NVD 更新，未关闭漏洞检查或错误检查。
+
+无 Key 时使用 nvd-feed profile，避免逐页调用匿名 API。镜像由 Dependency-Check 项目维护，通常每天尽力更新一次，可能滞后；扫描结果必须结合数据时间解释。参见 [官方镜像文档](https://dependency-check.github.io/DependencyCheck/data/mirrornvd.html)。扫描日志会随报告附件保存，便于诊断下载错误。

@@ -54,14 +54,17 @@ jobs:
       - name: Restore vulnerability database cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/work1-dependency-check-12.2.2
-          key: nvd-v12.2.2-${{ runner.os }}-${{ github.run_id }}
+          path: ~/.cache/work1-dependency-check-feed-12.2.2
+          key: nvd-feed-v12.2.2-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
-            nvd-v12.2.2-${{ runner.os }}-
+            nvd-feed-v12.2.2-${{ runner.os }}-
       - name: Check dependencies using NVD vulnerability data
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: bash scripts/run-sca.sh
+        shell: bash
+        run: |
+          mkdir -p target
+          bash scripts/run-sca.sh 2>&1 | tee target/dependency-check.log
       - name: Save dependency scan reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -70,4 +73,5 @@ jobs:
           path: |
             target/dependency-check-report.html
             target/dependency-check-report.json
+            target/dependency-check.log
           retention-days: 30

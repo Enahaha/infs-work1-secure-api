@@ -14,12 +14,12 @@ SAST 原始报告在 `target/spotbugsXml.xml`，可读报告在 `target/reports/
 
 作业要求运行依赖漏洞检查并生成报告，没有要求申请 API Key。当前脚本 `scripts/run-sca.sh` 支持：
 
-- 不提供 NVD_API_KEY 或值为空：匿名下载 NVD 数据，不因缺少 Key 提前失败。
+- 不提供 NVD_API_KEY 或值为空：从 Dependency-Check 官方镜像下载 NVD JSON 数据文件，不因缺少 Key 提前失败。
 - 提供非空 NVD_API_KEY：启用 Maven 的 nvd-key profile，从环境变量读取密钥。
 
-无需为了开始扫描而申请 Key。匿名更新首次可能较慢，也可能受 NVD 限流影响；若实际更新失败，任务如实失败。不会关闭漏洞源或忽略错误来制造成功。
+无需为了开始扫描而申请 Key。镜像首次下载和导入仍需时间；镜像可能滞后；若实际更新失败，任务如实失败。不会关闭漏洞源或忽略错误来制造成功。
 
-若已持有 Key，可以在 GitHub 仓库 Settings → Secrets and variables → Actions → New repository secret 添加 NVD_API_KEY。Fork PR 无法读取仓库 Secret，自动走匿名路径，不使用 pull_request_target 来取得密钥。
+若已持有 Key，可以在 GitHub 仓库 Settings → Secrets and variables → Actions → New repository secret 添加 NVD_API_KEY。Fork PR 无法读取仓库 Secret，自动走官方镜像路径，不使用 pull_request_target 来取得密钥。
 
 本地运行：`bash scripts/run-sca.sh`。真实 Key 不写进代码或命令参数。
 
@@ -80,7 +80,7 @@ HTTPS 推送可使用 IDEA 的 GitHub 登录流程或 GitHub CLI 登录，GitHub
 
 ## 本地验证状态
 
-2026-10-19：7 项功能测试通过；SAST 在应用逐项审核例外后通过，报告保存在 security-reports/local/。旧配置曾因缺少 NVD_API_KEY 而失败，不能视为依赖无漏洞。现已取消强制 Key 条件；新的匿名扫描结果应以实际运行记录为准。
+2026-10-19：7 项功能测试通过；SAST 在应用逐项审核例外后通过，报告保存在 security-reports/local/。旧配置曾因缺少 NVD_API_KEY 而失败，不能视为依赖无漏洞。现已取消强制 Key 条件；新的镜像扫描结果应以实际运行记录为准。
 
 本地扫描如需使用密钥，请通过本机环境变量 NVD_API_KEY 提供，不将真实值写进仓库。然后执行 `bash scripts/run-sca.sh`。
 
@@ -89,3 +89,7 @@ HTTPS 推送可使用 IDEA 的 GitHub 登录流程或 GitHub CLI 登录，GitHub
 2026-10-19，运行 f46d745 时，13.0.0 即使未设置 Key 仍报 `Invalid API Key, length of 0`。官方 issue #8715 记录了该版本内部默认空 Key 的缺陷；仅取消外部必填检查不能解决。因此插件固定为 12.2.2（两个 profile 同步），并使用独立的 12.2.2 缓存目录。阈值仍为 CVSS >= 7，failOnError 仍启用，NVD 分析保留。
 
 官方记录：https://github.com/dependency-check/DependencyCheck/issues/8715
+
+## 避免匿名 API 全量下载超时
+
+运行 a59b37f 的 GitHub SCA 在 60 分钟后被取消，未产生完整报告。无 Key 的默认路径改为官方维护的 NVD 数据文件镜像，使用 nvd-feed profile；有 Key 时保留 API 路径。镜像地址和更新局限见 https://dependency-check.github.io/DependencyCheck/data/mirrornvd.html 。这是改变数据传输方式，不是关闭 NVD 检查。扫描发现高危漏洞或运行出错仍然失败。扫描标准输出及错误输出保留在附件 dependency-check.log；流水线显式使用 bash pipefail，tee 不会掩盖失败。

@@ -132,9 +132,9 @@
                             <failBuildOnCVSS>7</failBuildOnCVSS>
                             <failOnError>true</failOnError>
                             <skipTestScope>false</skipTestScope>
-                            <dataDirectory>${user.home}/.cache/work1-dependency-check-12.2.2</dataDirectory>
+                            <dataDirectory>${user.home}/.cache/work1-dependency-check-feed-12.2.2</dataDirectory>
                             <!-- NVD remains enabled; OSS Index requires separate credentials. -->
-                            <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
+                            <ossIndexAnalyzerEnabled>false</ossIndexAnalyzerEnabled>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -151,6 +151,21 @@
                         <version>12.2.2</version>
                         <configuration>
                             <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>nvd-feed</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>12.2.2</version>
+                        <configuration>
+                            <nvdDatafeedUrl>https://dependency-check.github.io/DependencyCheck_Builder/nvd_cache/nvdcve-{0}.json.gz</nvdDatafeedUrl>
                         </configuration>
                     </plugin>
                 </plugins>
