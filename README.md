@@ -129,9 +129,9 @@ mvn test
 ```bash
 mvn -B -ntp test
 mvn -B -ntp -Psast -DskipTests compile spotbugs:check
-mvn -B -ntp -Psca dependency-check:check
+bash scripts/run-sca.sh
 ```
 
-SCA 包括测试依赖。NVD 漏洞源启用；OSS Index 分析器因未配置独立账号而关闭。运行此配置前需要设置 GitHub Secret `NVD_API_KEY`，以完成 NVD 数据更新，工作流通过环境变量读取，不在命令行或 pom.xml 中写入密钥。当前配置要求 API Key；未设置时工作流会给出明确错误，不会宣称扫描成功。
+SCA 包括测试依赖。NVD 漏洞源启用；OSS Index 分析器因未配置独立账号而关闭。NVD API Key 是可选项，不是作业要求：未配置或为空时匿名下载 NVD 数据；非空时由脚本启用 nvd-key 配置，通过环境变量读取，不将密钥写入命令行。匿名首次更新可能较慢或受限流影响；数据更新或分析失败仍会使任务失败，不能当作扫描通过。
 
 SAST 配置只聚焦 SECURITY 类别，具体审核例外及理由见 [审核记录](docs/SECURITY_REVIEW.md)，不等于完整的代码质量审计。扫描通过也不能证明不存在漏洞。GitHub 上的检查状态及附件应以实际运行结果为准。

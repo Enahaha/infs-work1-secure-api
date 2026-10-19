@@ -10,15 +10,18 @@ SAST 原始报告在 `target/spotbugsXml.xml`，可读报告在 `target/reports/
 
 登录 GitHub，创建新仓库，例如 `infs-work1-secure-api`。作业要求公开仓库，选择 Public。不要勾选自动生成 README、.gitignore 或 License，因为本地已有项目。
 
-## 2. 设置本配置要求的 NVD API Key
+## 2. NVD API Key 可选，可跳过申请
 
-从 https://nvd.nist.gov/developers/request-an-api-key 申请免费 API Key，并按邮件要求激活。
-在 GitHub 仓库 Settings → Secrets and variables → Actions → New repository secret 中添加：
+作业要求运行依赖漏洞检查并生成报告，没有要求申请 API Key。当前脚本 `scripts/run-sca.sh` 支持：
 
-- Name：`NVD_API_KEY`
-- Secret：收到的真实 API Key
+- 不提供 NVD_API_KEY 或值为空：匿名下载 NVD 数据，不因缺少 Key 提前失败。
+- 提供非空 NVD_API_KEY：启用 Maven 的 nvd-key profile，从环境变量读取密钥。
 
-密钥只填到 Secret 中，不放进源代码、截图或聊天。本工作流要求先设置 Key；缺少时将明确失败。Fork PR 无法取得仓库 Secret，其 SCA 检查会提示缺少 Key；可由维护者在可信分支的 push 上运行检查。不要把不可信 PR 改成 pull_request_target 来取得密钥。首次下载 NVD 数据可能较慢。
+无需为了开始扫描而申请 Key。匿名更新首次可能较慢，也可能受 NVD 限流影响；若实际更新失败，任务如实失败。不会关闭漏洞源或忽略错误来制造成功。
+
+若已持有 Key，可以在 GitHub 仓库 Settings → Secrets and variables → Actions → New repository secret 添加 NVD_API_KEY。Fork PR 无法读取仓库 Secret，自动走匿名路径，不使用 pull_request_target 来取得密钥。
+
+本地运行：`bash scripts/run-sca.sh`。真实 Key 不写进代码或命令参数。
 
 ## 3. 在 IDEA 上传
 
@@ -77,6 +80,6 @@ HTTPS 推送可使用 IDEA 的 GitHub 登录流程或 GitHub CLI 登录，GitHub
 
 ## 本地验证状态
 
-2026-10-19：7 项功能测试通过；SAST 在应用逐项审核例外后通过，报告保存在 security-reports/local/。本地实际启动了 Dependency-Check 13.0.0，但缺少 NVD_API_KEY，漏洞库更新失败，因此 SCA 尚未完成。请先配置 GitHub Secret 后运行，不应将此失败记录为依赖无漏洞。
+2026-10-19：7 项功能测试通过；SAST 在应用逐项审核例外后通过，报告保存在 security-reports/local/。旧配置曾因缺少 NVD_API_KEY 而失败，不能视为依赖无漏洞。现已取消强制 Key 条件；新的匿名扫描结果应以实际运行记录为准。
 
-本地扫描如需使用密钥，请通过本机环境变量 NVD_API_KEY 提供，不将真实值写进仓库。然后执行 `mvn -B -ntp -Psca dependency-check:check`。
+本地扫描如需使用密钥，请通过本机环境变量 NVD_API_KEY 提供，不将真实值写进仓库。然后执行 `bash scripts/run-sca.sh`。

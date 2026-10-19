@@ -51,14 +51,6 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
-      - name: Check NVD API key configuration
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: |
-          if [ -z "$NVD_API_KEY" ]; then
-            echo "::error::Add the NVD_API_KEY repository secret before running SCA. See docs/CI_GUIDE.md."
-            exit 1
-          fi
       - name: Restore vulnerability database cache
         uses: actions/cache@v4
         with:
@@ -69,7 +61,7 @@ jobs:
       - name: Check dependencies using NVD vulnerability data
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: mvn -B -ntp -Psca dependency-check:check
+        run: bash scripts/run-sca.sh
       - name: Save dependency scan reports
         if: always()
         uses: actions/upload-artifact@v4

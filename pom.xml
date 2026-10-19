@@ -132,10 +132,25 @@
                             <failBuildOnCVSS>7</failBuildOnCVSS>
                             <failOnError>true</failOnError>
                             <skipTestScope>false</skipTestScope>
-                            <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
                             <dataDirectory>${user.home}/.cache/work1-dependency-check</dataDirectory>
                             <!-- NVD remains enabled; OSS Index requires separate credentials. -->
                             <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <!-- Enabled explicitly only when NVD_API_KEY is nonempty. -->
+        <profile>
+            <id>nvd-key</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>13.0.0</version>
+                        <configuration>
+                            <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
                         </configuration>
                     </plugin>
                 </plugins>
