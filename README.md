@@ -1,38 +1,56 @@
-# Work 1 — Secure Notes API
+# Work 1 — Secure Notes API and CVE-2023-28432
 
-Java 17 / Spring Boot 4.1.1 / Maven / Spring Security / Spring Data JPA / H2。
+Java 17 · Spring Boot 4.1.1 · Maven · Spring Security · Spring Data JPA · H2
 
-这是 Work 1 的 API 部分。GitHub CI 安全扫描已添加配置，仍需上传仓库并取得实际运行结果；真实 CVE 实验和最终报告尚未完成，不能将本文当作完整实验结果。
+**Public repository:** <https://github.com/Enahaha/infs-work1-secure-api>
+**Last successful CI run:** <https://github.com/Enahaha/infs-work1-secure-api/actions/runs/39237435374>
+**Detailed CVE case study:** [docs/cve/CVE-2023-28432/README.md](docs/cve/CVE-2023-28432/README.md)
 
-## 1. 启动
+This repository contains the complete Work 1 submission:
 
-在 IntelliJ IDEA 中，将 Project SDK 和 Maven Runner JRE 都设为 JDK 17。
-打开 `Work1Application.java`，在运行配置的 Environment variables 中设置：
+1. a secure REST API with JWT authentication, BCrypt password hashing, SQLi
+   protection and HTML output escaping;
+2. a GitHub Actions pipeline with SAST (SpotBugs + FindSecBugs) and SCA
+   (OWASP Dependency-Check);
+3. a reproduced and remediated real CVE: **CVE-2023-28432** (MinIO cluster
+   information disclosure), including the vulnerable environment, exploit
+   evidence, root-cause analysis, the applied fix and regression tests.
 
-```text
-APP_DEMO_PASSWORD=Local-demo-2026!
-```
+## 1. Purpose
 
-这是本地实验密码示例，请勿使用个人账号的真实密码。首次运行会创建 alice、bob 两个实验用户，密码均取自该变量，数据库仅保存 BCrypt 哈希。生产系统应采用独立的账号开通流程。
+The purpose of this work is to practise the full secure-development lifecycle:
+design an API with protection against OWASP Top 10 issues, automate security
+testing in CI/CD, reproduce a real CVE in an isolated Vulhub environment,
+identify its root cause, apply a fix and verify that the attack no longer works
+without breaking normal functionality.
 
-也可以在终端运行：
+## 2. Build and run
+
+Requirements: JDK 17, Maven 3.9+, Docker (for the CVE part).
 
 ```bash
-cd /Users/zhouzihao/INFS/work_1
-export JAVA_HOME="/Users/zhouzihao/Library/Java/JavaVirtualMachines/ms-17.0.15/Contents/Home"
-export PATH="$JAVA_HOME/bin:$PATH"
 export APP_DEMO_PASSWORD='Local-demo-2026!'
 mvn spring-boot:run
 ```
 
-服务监听 `http://127.0.0.1:8080`。没有首页，直接用 curl 或 Postman 测试接口。
-IDEA 的 Working directory 应设置为项目目录；H2 文件保存在当前工作目录的 `data/` 下。
-`data/` 已加入 Git 忽略规则。两个用户已存在后，重启时不必再提供初始化密码；更改环境变量不会重置现有密码。
-JWT 使用每次启动随机生成的 RSA 密钥，因此重启后需要重新登录。此方案用于单实例本地教学，正式部署需安全持久化和管理密钥，并启用 HTTPS。
+The service listens on `http://127.0.0.1:8080`. The H2 file database is stored
+under `data/` (ignored by Git). On first start the application creates two demo
+users, `alice` and `bob`, with the password from `APP_DEMO_PASSWORD`; only
+BCrypt hashes are stored.
 
-## 2. 按顺序测试接口
+The JWT signing key is generated at startup, so tokens become invalid after a
+restart. This is intentional for a single-instance educational deployment; a
+production system needs a persisted key and HTTPS.
 
-### 登录
+## 3. API
+
+| Method | Path | Authentication | Purpose |
+|---|---|---|---|
+| `POST` | `/auth/login` | Public | Authenticate `login` + `password`, return a JWT |
+| `GET` | `/api/data` | Bearer JWT | Return the authenticated user's notes |
+| `POST` | `/api/notes` | Bearer JWT | Create a note for the authenticated user (self-designed endpoint) |
+
+### Login
 
 ```bash
 curl -i -X POST http://127.0.0.1:8080/auth/login \
@@ -40,104 +58,307 @@ curl -i -X POST http://127.0.0.1:8080/auth/login \
   -d '{"login":"alice","password":"Local-demo-2026!"}'
 ```
 
-成功返回 200，以及 `token`、`tokenType`、`expiresIn`。令牌有效期为 1800 秒。
-把返回的 token 复制到下面变量，不要包含外围双引号：
+A successful login returns HTTP 200 and a JSON object with `token`,
+`tokenType` (`Bearer`) and `expiresIn` (1800 seconds).
+
+### Create a note
 
 ```bash
-TOKEN='替换为登录返回的token'
-```
-
-### 创建笔记（自选接口）
-
-```bash
+TOKEN='<token from the login response>'
 curl -i -X POST http://127.0.0.1:8080/api/notes \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"content":"我的第一条安全笔记"}'
+  -d '{"content":"My first secure note"}'
 ```
 
-成功返回 201 和笔记记录。content 不得为空或仅包含空白，最长 2000 个字符。
+The response is HTTP 201. The owner is taken from the verified JWT; a
+client-supplied `ownerId` is ignored. `content` must be non-blank and at most
+2000 characters.
 
-### 查询自己的笔记
+### Read notes
 
 ```bash
 curl -i http://127.0.0.1:8080/api/data \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-成功返回 200 和 JSON 数组。只返回 JWT 对应用户的笔记。
+The response is HTTP 200 and contains only the notes owned by the JWT subject.
+Without a token the same request returns HTTP 401.
 
-### 验证未登录访问被拒绝
+The recorded API tests are in
+[`docs/screenshots/api/`](docs/screenshots/api/): login, note creation, note
+reading, unauthenticated access, wrong password, SQL-injection-style login
+input, HTML-escaped output, cross-user isolation and a tampered JWT signature.
 
-```bash
-curl -i http://127.0.0.1:8080/api/data
+![Login and JWT issuance](docs/screenshots/api/01_login_success_200.png)
+
+## 4. Security measures
+
+### 4.1 SQL injection protection
+
+`UserAccountRepository` and `NoteRepository` use Spring Data derived queries
+(`findByUsername`, `findByOwnerIdOrderByIdAsc`). Spring Data binds the values as
+JDBC parameters; no SQL string is built from user input. The login path accepts
+an injection-style username but returns HTTP 401, and the integration test
+`passwordsAreHashedAndWrongCredentialsAreRejected` covers this case.
+
+### 4.2 XSS protection
+
+Note content is stored as entered and escaped when it is returned.
+`NoteResponse.from` calls `HtmlUtils.htmlEscape` on every note before
+serialization:
+
+```java
+static NoteResponse from(Note note) {
+    return new NoteResponse(
+        note.getId(),
+        HtmlUtils.htmlEscape(note.getContent()),
+        note.getCreatedAt());
+}
 ```
 
-应返回 401。错误密码、无效签名、过期令牌也会被拒绝。
+The test `loginCreateAndReadEscapeHtmlAndIsolateOwners` submits
+`<script>alert('x')</script>` and verifies that the response contains
+`&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;`. HTML escaping is appropriate
+for the HTML-text context of this API; clients must not decode the value and
+insert it as raw HTML. The API does not claim that HTML escaping is a substitute
+for context-specific encoding in JavaScript, CSS or URL contexts.
 
-## 3. 安全措施与实现位置
+### 4.3 Authentication and authorization
 
-- **SQLi**：`UserAccountRepository`、`NoteRepository` 使用 Spring Data 的派生查询，框架绑定参数，不拼接 SQL。笔记内容即便含有 SQL 片段，也只作为数据保存。
-- **XSS**：笔记以原文存储，通过 `NoteResponse.from` 在返回时进行 HTML 文本转义，避免反复转义。API 明确约定 content 是 HTML 转义后的文本，并以 JSON 返回。HTML 转义只对应 HTML 文本场景，不能当成 JavaScript、CSS 或 URL 等上下文的通用防护；客户端也不能先解码再作为不可信 HTML 插入。
-- **密码**：BCrypt，cost=12。实验账号初始化密码要求 12–72 个可打印 ASCII 字符，以符合 BCrypt 的 72 字节上限。登录接口使用相同字符集约束。不存在的账号也执行一次哈希比对，错误账号与错误密码返回相同提示。
-- **JWT**：RS256 签名，校验签名、有效期、issuer、audience 和用户标识。只接收 Authorization Bearer 令牌；不使用 Cookie 或服务端登录会话，因此关闭此 API 的 CSRF 防护。JWT 载荷不包含密码。
-- **访问控制**：用户 ID 从通过验证的 JWT 获取，不接受客户端指定笔记所有者；查询也按用户 ID 过滤。
-- **输入与错误**：Bean Validation 限制字段，非法 JSON 返回 400，不向响应暴露异常栈。不开放 H2 控制台。服务只绑定本机地址。
+* Passwords are hashed with **BCrypt cost 12**; plaintext passwords are never
+  stored or logged.
+* A successful login issues an **RS256 JWT** with `iss`, `aud`, `sub`, `iat` and
+  `exp` claims. The subject is the user ID.
+* The resource-server filter validates the signature, expiration, issuer,
+  audience and a positive numeric subject on every protected request.
+* The API is stateless and accepts tokens only from the `Authorization: Bearer`
+  header. Cookie authentication, HTTP Basic and form login are not configured;
+  the regression test `cookiesAndHttpBasicDoNotAuthenticateRequests` verifies
+  that a token in a cookie or Basic credentials do not authenticate a request.
+* CSRF protection is disabled because the API does not use browser-automatic
+  credentials; this exception is documented in
+  [`docs/SECURITY_REVIEW.md`](docs/SECURITY_REVIEW.md) and covered by the same
+  regression test.
+* Unknown usernames still perform a BCrypt comparison against a dummy hash, and
+  unknown-user and wrong-password failures return the same HTTP 401 message.
 
-本教学版本未实现登录限速、刷新令牌、用户注销/禁用和持久化签名密钥，不应直接作为公网生产服务。
+### 4.4 Other controls
 
-## 4. 读代码的顺序
+* Bean Validation limits login, password and note fields; malformed JSON returns
+  HTTP 400 without a stack trace.
+* The H2 console is disabled and the server binds to `127.0.0.1`.
+* Security headers are supplied by Spring Security (`X-Content-Type-Options`,
+  `X-Frame-Options: DENY`, cache-control).
 
-1. `Work1Application`：程序入口。
-2. `UserAccount` / `Note`：数据库中保存什么。
-3. 两个 `Repository`：如何查询和保存。
-4. `DemoDataInitializer`：首次运行如何创建实验用户。
-5. `AuthController`：验证密码并签发 JWT。
-6. `SecurityConfig`：进入接口之前如何校验 JWT。
-7. `NoteController`：如何根据身份查询、创建笔记并安全输出。
-8. `ApiExceptionHandler`：如何返回参数和登录错误。
-
-## 5. 自动验证
+## 5. Tests
 
 ```bash
 mvn test
 ```
 
-集成测试使用内存 H2，不修改本地文件数据库。覆盖真实登录和令牌签发、密码哈希、错误凭据、SQL 注入式用户名、未登录访问、过期/篡改/错误 issuer 和 audience 的令牌、笔记创建读取、用户数据隔离、HTML 转义、参数校验和非法 JSON。
+Result: **7 tests, 0 failures, 0 errors**. The integration tests cover real
+login and token issuance, password hashing, wrong credentials, SQL-injection
+style input, unauthenticated access, expired/tampered/wrong-issuer/wrong-audience
+tokens, note creation and reading, cross-user isolation, HTML escaping,
+validation and malformed JSON.
 
-## 6. Work 1 后续待完成
+## 6. CI/CD and security scanning
 
-- 已配置 GitHub Actions；需上传 GitHub，在 push / pull request 时实际运行并保存测试、SAST 和 SCA 报告。
-- 上传公开仓库并记录最后一次成功流水线链接。
-- 选择 Vulhub CVE，在本地环境完成复现、根因分析、修复和回归测试。
-- 保存真实命令、响应和截图，按手册要求制作 README 和报告，补充封面信息。
+The workflow is [`.github/workflows/ci.yml`](.github/workflows/ci.yml). It runs
+on every push, pull request and manual dispatch. Two jobs run in parallel:
 
-框架参考：[Spring Security JWT 官方文档](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html)。
-
-## 7. GitHub Actions 与安全扫描
-
-详细操作见 [CI 操作指南](docs/CI_GUIDE.md)。工作流位于 `.github/workflows/ci.yml`，仓库根目录必须是当前 work_1 目录（不能把它嵌套上传到另一个仓库的子目录后直接使用本工作流）。
-
-| 检查 | 工具 | 失败条件 |
+| Job | Tool | Failure condition |
 |---|---|---|
-| 功能测试 | JUnit + Spring Boot / MockMvc | 测试失败或运行错误 |
-| SAST | SpotBugs 4.10.5.0 + FindSecBugs 1.14.0 | SECURITY 类别的任意置信级别未排除发现项，或扫描运行错误 |
-| SCA | OWASP Dependency-Check 12.2.2 | CVSS 大于等于 7 的发现项，或扫描运行错误 |
+| Tests and SAST | JUnit + Spring Boot / MockMvc | Test failure, or any non-excluded SECURITY-category SpotBugs finding, or analysis error |
+| Dependency vulnerability scan (SCA) | SpotBugs 4.10.5.0 + FindSecBugs 1.14.0; OWASP Dependency-Check 12.2.2 | CVSS ≥ 7 finding, or scan error |
 
-本地命令（使用 JDK 17）：
+SAST is limited to the `SECURITY` category at every confidence level. The four
+reviewed findings and the justification for the two narrow exceptions are in
+[`docs/SECURITY_REVIEW.md`](docs/SECURITY_REVIEW.md) and
+[`config/spotbugs-reviewed.xml`](config/spotbugs-reviewed.xml). The exceptions
+are not a claim that the code is vulnerability-free.
+
+### 6.1 Latest successful pipeline
+
+* Run: <https://github.com/Enahaha/infs-work1-secure-api/actions/runs/39237435374>
+* Commit: `50b16bb`
+* Status: **success**, both jobs passed
+* Tests and SAST: 7 tests passed; SAST reported 0 findings and 0 analysis errors
+* SCA: 70 unique components, **0 vulnerable dependencies**; NVD data timestamp
+  `2026-10-18T14:16:57Z`
+
+![GitHub Actions: both jobs passed](docs/screenshots/ci/01_github_actions_all_checks_passed_39237435374.png)
+
+![SAST report: 0 findings, 0 errors](docs/screenshots/ci/02_sast_report.png)
+
+![SCA report: 0 vulnerabilities](docs/screenshots/ci/03_sca_report_summary.png)
+
+The downloaded reports, logs and the run record are archived in
+[`docs/security-reports/github/39237435374/`](docs/security-reports/github/39237435374/)
+and [`docs/CI_RESULTS.md`](docs/CI_RESULTS.md).
+
+### 6.2 A real dependency finding that was fixed
+
+Dependency-Check found 11 vulnerabilities in the transitive
+`tomcat-embed-core` 11.0.24 (9 of them with CVSS ≥ 7). `pom.xml` now pins
+`tomcat.version=11.0.27`; the after-fix scan reports 0 vulnerable dependencies.
+Before/after reports and the analysis are in
+[`docs/DEPENDENCY_REMEDIATION.md`](docs/DEPENDENCY_REMEDIATION.md).
+
+## 7. CVE-2023-28432 — MinIO cluster information disclosure
+
+| Field | Value |
+|---|---|
+| CVE | CVE-2023-28432 |
+| CVSS v3.1 | **7.5 High** — `AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N` |
+| CWE | CWE-200 |
+| Affected | MinIO distributed deployments from `RELEASE.2019-12-17T23-16-33Z` to before `RELEASE.2023-03-20T20-16-18Z` |
+| Fixed | `RELEASE.2023-03-20T20-16-18Z` (upstream commit `3b5dbf9`) |
+| Lab | Vulhub `minio/CVE-2023-28432`, 3-node cluster |
+
+### 7.1 Reproduction
+
+Start the vulnerable environment:
 
 ```bash
-mvn -B -ntp test
-mvn -B -ntp -Psast -DskipTests compile spotbugs:check
-bash scripts/run-sca.sh
+cd vulhub/minio/CVE-2023-28432
+docker compose up -d
 ```
 
-SCA 包括测试依赖。NVD 漏洞源启用；OSS Index 分析器因未配置独立账号而关闭。NVD API Key 是可选项，不是作业要求：未配置或为空时从 Dependency-Check 官方镜像下载 NVD JSON 数据文件；非空时由脚本启用 nvd-key 配置，通过环境变量读取，不将密钥写入命令行。首次镜像下载和导入仍需时间，数据新鲜度受镜像更新时间影响；数据更新或分析失败仍会使任务失败，不能当作扫描通过。
+Send an unauthenticated request to the bootstrap endpoint:
 
-SAST 配置只聚焦 SECURITY 类别，具体审核例外及理由见 [审核记录](docs/SECURITY_REVIEW.md)，不等于完整的代码质量审计。扫描通过也不能证明不存在漏洞。GitHub 上的检查状态及附件应以实际运行结果为准。
+```bash
+curl -i -X POST http://127.0.0.1:9000/minio/bootstrap/v1/verify
+```
 
-Dependency-Check 暂固定为 12.2.2，避免 13.0.0 在无 API Key 时的已知回归（[官方问题 #8715](https://github.com/dependency-check/DependencyCheck/issues/8715)）。漏洞库缓存也按版本隔离。扫描数据仍从 NVD 更新，未关闭漏洞检查或错误检查。
+The vulnerable release returns HTTP 200 with the process environment. The
+actual response contained:
 
-无 Key 时使用 nvd-feed profile，避免逐页调用匿名 API。镜像由 Dependency-Check 项目维护，通常每天尽力更新一次，可能滞后；扫描结果必须结合数据时间解释。参见 [官方镜像文档](https://dependency-check.github.io/DependencyCheck/data/mirrornvd.html)。扫描日志会随报告附件保存，便于诊断下载错误。
+```json
+"MinioEnv": {
+  "MINIO_ROOT_USER": "minioadmin",
+  "MINIO_ROOT_PASSWORD": "minioadmin-vulhub",
+  ...
+}
+```
 
-依赖扫描已实际发现 Tomcat 11.0.24 的漏洞报告，现已统一升级至 11.0.27。本地 7 项测试、SAST 和 SCA 复测通过。修复前后证据及影响解释见 [依赖修复记录](docs/DEPENDENCY_REMEDIATION.md)。云端成功运行链接以 Actions 的最终结果为准。
+The leaked credentials were accepted by the web console
+(`POST /api/v1/login` → HTTP 204) and by the S3 client. Using them, an attacker
+created a bucket:
+
+```text
+Bucket created successfully `leaked/attacker-bucket-033200`.
+```
+
+![UnAuthenticated environment disclosure](docs/screenshots/cve/02_exploit_env_leak.png)
+
+![Leaked credentials grant admin access](docs/screenshots/cve/03_leaked_creds_impact.png)
+
+### 7.2 Root cause
+
+In distributed mode, MinIO nodes compare their `MINIO_*` environment variables
+through the internal bootstrap endpoint `/minio/bootstrap/v1/verify`.
+`getServerSystemCfg()` copied every `MINIO_*` variable into `MinioEnv`, skipping
+only a small denylist. The denylist did not include the root credentials, and
+`VerifyHandler` performed no caller authentication. The route is served on the
+same port as the public S3 API, and the S3 signature middleware does not cover
+this reserved internal path. The result was an unauthenticated, plaintext
+disclosure of `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_ACCESS_KEY` and
+`MINIO_SECRET_KEY`.
+
+The upstream fix (commit `3b5dbf9`) adds those four keys to the denylist, hashes
+the remaining environment values, and requires
+`storageServerRequestValidate(r)` — a JWT signed with the cluster's active
+secret, with the access key/subject, audience and `X-Minio-Time` checked —
+before `VerifyHandler` builds a response. The complete source diff is in
+[`docs/cve/CVE-2023-28432/source/fix.diff`](docs/cve/CVE-2023-28432/source/fix.diff).
+
+![Upstream fix diff](docs/screenshots/cve/04_fix_diff.png)
+
+### 7.3 Fix and verification
+
+The lab fix upgrades the image in `docker-compose.yml` from
+`vulhub/minio:2023-02-27T18-10-45Z` to
+`minio/minio:RELEASE.2023-03-20T20-16-18Z`. The complete fixed file is in
+[`fixes/CVE-2023-28432/docker-compose.yml`](fixes/CVE-2023-28432/docker-compose.yml).
+
+```bash
+docker compose down
+docker compose up -d
+```
+
+The same unauthenticated request now returns:
+
+```text
+HTTP/1.1 403 Forbidden
+
+JWT token missing
+```
+
+![The attack is blocked after the fix](docs/screenshots/cve/05_exploit_blocked.png)
+
+Regression tests after the fix:
+
+* `/minio/health/live` → HTTP 200;
+* web-console login → HTTP 204; bucket list → HTTP 200;
+* `mc mb` created a new bucket;
+* `mc cp` uploaded a 35-byte object and `mc cat` returned its content;
+* the buckets created before the fix are still readable.
+
+![Normal functionality after the fix](docs/screenshots/cve/06_regression_after_fix.png)
+
+The full analysis, source excerpts, transcripts and evidence index are in
+[`docs/cve/CVE-2023-28432/README.md`](docs/cve/CVE-2023-28432/README.md). The
+submission fix folder is
+[`fixes/CVE-2023-28432/`](fixes/CVE-2023-28432/).
+
+## 8. Repository layout
+
+```text
+.github/workflows/ci.yml          GitHub Actions: tests, SAST, SCA
+config/                           SpotBugs include/exclude filters
+src/main/java/com/zzh/work_1/     API, security and persistence code
+src/test/java/                    integration tests
+scripts/                          SAST report renderer, SCA runner, CVE evidence renderer
+docs/ci/                          CI guide and results
+docs/screenshots/api/             API test screenshots
+docs/screenshots/ci/              Actions, SAST and SCA report screenshots
+docs/screenshots/cve/             CVE reproduction, fix and regression screenshots
+docs/cve/CVE-2023-28432/          CVE write-up, source diff, transcripts, evidence index
+fixes/CVE-2023-28432/             fixed docker-compose.yml for the CVE environment
+```
+
+## 9. Limitations
+
+This is an educational application, not a production service:
+
+* the JWT signing key is regenerated on every start; there is no refresh token,
+  logout, account lockout or login rate limiting;
+* the H2 file database and the loopback-only HTTP listener are suitable for a
+  local lab only;
+* SAST/SCA passing does not prove the absence of vulnerabilities;
+* the Vulhub credentials are intentionally public lab defaults. In a real
+  incident, the leaked root credentials must be rotated and access logs
+  reviewed, even after the software upgrade.
+
+## 10. References
+
+* OWASP Top 10: <https://owasp.org/www-project-top-ten/>
+* OWASP Cheat Sheet Series: <https://cheatsheetseries.owasp.org/>
+* Spring Security JWT resource server:
+  <https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html>
+* GitHub Actions: <https://docs.github.com/en/actions>
+* OWASP Dependency-Check:
+  <https://dependency-check.github.io/DependencyCheck/>
+* SpotBugs: <https://spotbugs.github.io/>
+* FindSecBugs: <https://github.com/find-sec-bugs/find-sec-bugs>
+* NVD — CVE-2023-28432: <https://nvd.nist.gov/vuln/detail/CVE-2023-28432>
+* MinIO advisory GHSA-6xvq-wj2x-3h3q:
+  <https://github.com/minio/minio/security/advisories/GHSA-6xvq-wj2x-3h3q>
+* Vulhub `minio/CVE-2023-28432`:
+  <https://github.com/vulhub/vulhub/tree/master/minio/CVE-2023-28432>
+
+A Chinese reference version of the earlier API notes is kept in
+[`README.zh-cn.md`](README.zh-cn.md). The English version above is the submitted
+README.

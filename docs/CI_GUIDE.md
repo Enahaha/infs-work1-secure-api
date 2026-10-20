@@ -25,7 +25,7 @@ SAST 原始报告在 `target/spotbugsXml.xml`，可读报告在 `target/reports/
 
 ## 3. 在 IDEA 上传
 
-项目已初始化 Git 仓库，但还没有远程地址。可以在 IDEA 的 Git → GitHub → Share Project on GitHub 中创建并分享仓库（若使用这种方式，无需先在网页建同名仓库）；或连接前一步建好的空仓库后提交推送。
+仓库已创建并推送到 <https://github.com/Enahaha/infs-work1-secure-api>（`master` 分支）。以下步骤保留作为操作参考；后续只需提交并推送变更。
 
 提交前查看文件列表：应包括 src、pom.xml、config、.github/workflows 和文档；不应包括 data、target、.idea 或 .env。报告截图中的本地实验密码/JWT 原图可本地留存，发布时使用经过遮挡的副本；不要把个人真实凭据放入仓库。
 

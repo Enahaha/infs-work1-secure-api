@@ -37,3 +37,6 @@ data/
 .env
 .idea/
 *.iml
+
+# Intermediate HTML used only to render CVE evidence PNGs
+docs/cve/CVE-2023-28432/evidence-html/

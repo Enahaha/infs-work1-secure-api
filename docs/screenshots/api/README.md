@@ -1,5 +1,21 @@
 # Work 1：API 功能与访问控制截图
 
+> **English summary.** These screenshots were captured from actual `curl`
+> requests against the local API. The main English README links the images
+> directly; the detailed Chinese captions below are retained as a reference.
+>
+> | File | Request | Observed result |
+> |---|---|---|
+> | `01_login_success_200.png` | `POST /auth/login` with valid credentials | 200 + JWT |
+> | `02_create_note_authenticated_201.png` | `POST /api/notes` with Bearer JWT | 201 + created note |
+> | `03_get_notes_authenticated_200.png` | `GET /api/data` with Bearer JWT | 200 + own notes |
+> | `04_get_notes_without_token_401.png` | `GET /api/data` without a token | 401 |
+> | `05_login_wrong_password_401.png` | `POST /auth/login` with a wrong password | 401 |
+> | `06_login_sqli_attempt_401.png` | `POST /auth/login` with an SQLi-style username | 401 |
+> | `07_create_note_xss_escaped_201.png` | `POST /api/notes` with `<script>alert(1)</script>` | 201, response contains `&lt;script&gt;` |
+> | `08_get_notes_bob_empty_200.png` | `GET /api/data` with Bob's token | 200 + `[]` |
+> | `09_tampered_jwt_signature_rejected_401.png` | `GET /api/data` with a modified JWT signature | 401 `Invalid signature` |
+
 以下截图由学生实际执行请求后提供，按登录、创建、查询、拒绝未认证访问的顺序归档。图片保持原样，仅复制和重命名，未裁剪或修改执行结果。
 
 | 文件名 | 请求接口 | HTTP 状态码 | 说明 |
