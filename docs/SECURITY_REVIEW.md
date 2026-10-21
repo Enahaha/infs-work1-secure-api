@@ -1,14 +1,27 @@
-# SAST 发现项审核记录
+# SAST finding review
 
-首次本地扫描报告保留在 security-reports/local/sast-initial.xml。工具为 SpotBugs 4.10.5.0 + FindSecBugs 1.14.0，SECURITY 类别、Low 阈值（包含所有置信级别）。发现 4 项，逐项审核如下。
+The first local scan report is kept at
+[`security-reports/local/sast-initial.xml`](security-reports/local/sast-initial.xml).
+The tool is SpotBugs 4.10.5.0 with FindSecBugs 1.14.0, `SECURITY` category,
+Low threshold (all confidence levels). Four findings were reviewed:
 
-| 规则 | 数量 | 审核结论 |
+| Rule | Count | Review conclusion |
 |---|---|---|
-| SPRING_ENDPOINT | 3 | 提示发现了 Spring 接口入口，用于人工审计，不是具体漏洞结论。已审查登录与笔记接口：仅登录开放，其余接口校验 JWT，查询按用户过滤，使用参数绑定和 HTML 文本输出转义。仅对这两个已审核控制器排除此信息项。 |
-| SPRING_CSRF_PROTECTION_DISABLED | 1 | 对普通使用 Cookie 登录的网站是有效警告。本 API 只接收显式 Authorization Bearer 令牌，不启用 Cookie 认证、HTTP Basic 或表单登录，并设置 STATELESS。因此传统跨站请求无法通过浏览器自动附带身份凭证取得认证。仅对 SecurityConfig 中对应配置位置记录例外。 |
+| `SPRING_ENDPOINT` | 3 | Endpoint-inventory hint for manual audit, not a concrete vulnerability finding. The login and notes endpoints were reviewed: only login is public; the other endpoints validate JWT; queries are filtered by user; parameter binding and HTML text output escaping are used. The hint is excluded only for the two reviewed controllers. |
+| `SPRING_CSRF_PROTECTION_DISABLED` | 1 | A valid warning for sites that use cookie-based login. This API accepts only an explicit `Authorization: Bearer` token; cookie authentication, HTTP Basic and form login are not enabled, and the API is STATELESS. Traditional cross-site requests cannot make the browser attach the credentials automatically. The exception is recorded only for the corresponding configuration location in `SecurityConfig`. |
 
-这些是基于当前设计的审核例外，不是修改代码后消除了 4 个漏洞，也不代表整个程序绝对安全。具体例外在 config/spotbugs-reviewed.xml 中；其他安全规则保留，阈值仍为 Low。如果以后引入 Cookie、Session、HTTP Basic 或表单登录，必须重新评估 CSRF 配置并删除或更新例外。
+These are reviewed exceptions based on the current design. They are not four
+vulnerabilities removed by code changes, and they do not prove that the whole
+program is absolutely secure. The exceptions are in
+[`config/spotbugs-reviewed.xml`](../config/spotbugs-reviewed.xml); all other security
+rules remain enabled at the Low threshold. If cookies, sessions, HTTP Basic or
+form login are introduced later, the CSRF configuration must be re-evaluated and
+the exception removed or updated.
 
-回归测试 cookiesAndHttpBasicDoNotAuthenticateRequests 验证：Cookie 中的有效 JWT 不会认证请求；Basic 凭据不会认证请求；显式 Bearer 才能访问，且不设置会话 Cookie。跨站策略和 XSS 风险仍需按各自场景处理。
+The regression test `cookiesAndHttpBasicDoNotAuthenticateRequests` verifies that a
+valid JWT in a cookie does not authenticate a request, Basic credentials do not
+authenticate a request, and only an explicit Bearer token is accepted (with no
+session cookie set). Cross-site policy and XSS risks still need to be handled in
+their own contexts.
 
-参考：https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html
+Reference: <https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html>
